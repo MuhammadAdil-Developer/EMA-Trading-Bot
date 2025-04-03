@@ -3,16 +3,15 @@ import cors from "cors";
 import { Server } from "socket.io";
 import Klines from "./klines.js";
 import mongoose from "mongoose";
-import path from "path";
 import { fileURLToPath } from "url";
+import path from "path";
 
-// Get directory name in ESM
+const PORT = 4000;
+const app = express();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Use PORT from environment variable (important for Railway)
-const PORT = process.env.PORT || 4000;
-const app = express();
 
 // Store reports in memory (or consider moving to MongoDB)
 const reports = [];
@@ -44,15 +43,10 @@ const io = new Server(server, {
 });
 
 // Connect to MongoDB
-try {
-  await mongoose.connect('mongodb+srv://developeradil9:Juwtb7arssiVj6Dn@cluster0.o41im7s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
-  console.log("Connected to MongoDB");
-} catch (err) {
-  console.error("MongoDB connection error:", err);
-}
+await mongoose.connect('mongodb+srv://developeradil9:Juwtb7arssiVj6Dn@cluster0.o41im7s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
 
 // Alert Schema
 const alertSchema = new mongoose.Schema({
@@ -101,11 +95,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// Log some helpful information
-console.log(`Server started. Available routes:
-- Main app: http://localhost:${PORT}
-- Client files: http://localhost:${PORT}/client/
-- Client index: http://localhost:${PORT}/client/index.html`);
+app.use(express.json()); 
 
 app.post("/tradingview-alert", (req, res) => {
   try {
@@ -280,5 +270,3 @@ app.post('/api/alerts', async (req, res) => {
     res.status(500).send(err);
   }
 });
-
-
