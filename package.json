@@ -2,8 +2,9 @@
   "name": "ema-trading-bot",
   "version": "1.0.0",
   "scripts": {
-    "start": "node proxy/proxy.js",
-    "build": "npm install --omit=dev"
+    "preinstall": "echo 'Using custom install'",
+    "build": "npm install --omit=dev --no-audit --no-fund",
+    "start": "node proxy/proxy.js"
   },
   "dependencies": {
     "mongoose": "^8.0.3",
