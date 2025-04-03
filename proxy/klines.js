@@ -1,62 +1,78 @@
 import got from "got";
 import WebSocket from "ws";
-import { SMA, EMA, RSI, MACD } from "@debut/indicators";
+import { EMA } from "@debut/indicators";
+import { TEMA } from "./tema-indicator.js"; // You'll need to implement this
 
 class BinanceKlineWS {
   constructor(symbol = "BTCUSDT", interval = "1h") {
     this.symbol = symbol.toLowerCase();
     this.interval = interval;
-    this.klines = new Map(); // Store klines with timestamp as key
+    this.klines = new Map();
 
-    // Initialize indicators
-    this.sma = new SMA(200);
-    this.ema = new EMA(21);
-    this.rsi = new RSI(14);
-    this.macd = new MACD(12, 26, 9);
+    // Initialize only the requested indicators
+    this.ema8 = new EMA(8);
+    this.ema20 = new EMA(20);
+    this.ema50 = new EMA(50);
+    this.ema200 = new EMA(200);
+    this.tema5 = new TEMA(5);
+    this.volumeMa = new EMA(20); // Volume MA typically uses 20 period
+    this.volumeOscillator = {
+      shortEma: new EMA(10),
+      longEma: new EMA(20),
+      getValue: function(volume) {
+        const short = this.shortEma.nextValue(volume);
+        const long = this.longEma.nextValue(volume);
+        return short && long ? ((short - long) / long) * 100 : null;
+      }
+    };
 
     this.initialize();
   }
 
   async initialize() {
     try {
-      // Fetch historical klines from Binance
       const response = await got(
         `https://api.binance.com/api/v3/klines?symbol=${this.symbol.toUpperCase()}&interval=${
           this.interval
         }&limit=1000`
       ).json();
 
-      // Store the historical klines in the Map
       response.forEach((kline, i) => {
+        const close = Number(kline[4]);
+        const volume = Number(kline[5]);
+        
         const formattedData = {
           time: Math.round(kline[0] / 1000),
           open: Number(kline[1]),
           high: Number(kline[2]),
           low: Number(kline[3]),
-          close: Number(kline[4]),
-          volume: Number(kline[5]),
-          sma:
-            i === response.length - 1
-              ? this.sma.momentValue(Number(kline[4]))
-              : this.sma.nextValue(Number(kline[4])),
-          ema:
-            i === response.length - 1
-              ? this.ema.momentValue(Number(kline[4]))
-              : this.ema.nextValue(Number(kline[4])),
-          rsi:
-            i === response.length - 1
-              ? this.rsi.momentValue(Number(kline[4]))
-              : this.rsi.nextValue(Number(kline[4])),
-          macd:
-            i === response.length - 1
-              ? this.macd.momentValue(Number(kline[4]))
-              : this.macd.nextValue(Number(kline[4])),
+          close: close,
+          volume: volume,
+          ema8: i === response.length - 1
+            ? this.ema8.momentValue(close)
+            : this.ema8.nextValue(close),
+          ema20: i === response.length - 1
+            ? this.ema20.momentValue(close)
+            : this.ema20.nextValue(close),
+          ema50: i === response.length - 1
+            ? this.ema50.momentValue(close)
+            : this.ema50.nextValue(close),
+          ema200: i === response.length - 1
+            ? this.ema200.momentValue(close)
+            : this.ema200.nextValue(close),
+          tema5: i === response.length - 1
+            ? this.tema5.momentValue(close)
+            : this.tema5.nextValue(close),
+          volumeMa: i === response.length - 1
+            ? this.volumeMa.momentValue(volume)
+            : this.volumeMa.nextValue(volume),
+          volumeOsc: this.volumeOscillator.getValue(volume)
         };
+        
         this.klines.set(formattedData.time, formattedData);
       });
 
       console.log("Successfully fetched historical klines");
-      // Connect to WebSocket after fetching historical data
       this.connect();
     } catch (error) {
       console.error("Error fetching historical klines:", error);
@@ -64,7 +80,6 @@ class BinanceKlineWS {
   }
 
   connect() {
-    // Create WebSocket connection to Binance for 1min BTCUSDT klines
     this.ws = new WebSocket(
       `wss://stream.binance.com:9443/ws/${this.symbol}@kline_${this.interval}`
     );
@@ -80,29 +95,38 @@ class BinanceKlineWS {
       if (parsedData.e !== "kline") return;
       const kline = parsedData.k;
       const isFinal = kline.x;
+      const close = Number(kline.c);
+      const volume = Number(kline.v);
+      
       const formattedData = {
         time: Math.round(kline.t / 1000),
         open: Number(kline.o),
         high: Number(kline.h),
         low: Number(kline.l),
-        close: Number(kline.c),
-        volume: Number(kline.v),
-        sma: isFinal
-          ? this.sma.nextValue(Number(kline.c))
-          : this.sma.momentValue(Number(kline.c)),
-        ema: isFinal
-          ? this.ema.nextValue(Number(kline.c))
-          : this.ema.momentValue(Number(kline.c)),
-        rsi: isFinal
-          ? this.rsi.nextValue(Number(kline.c))
-          : this.rsi.momentValue(Number(kline.c)),
-        macd: isFinal
-          ? this.macd.nextValue(Number(kline.c))
-          : this.macd.momentValue(Number(kline.c)),
+        close: close,
+        volume: volume,
+        ema8: isFinal
+          ? this.ema8.nextValue(close)
+          : this.ema8.momentValue(close),
+        ema20: isFinal
+          ? this.ema20.nextValue(close)
+          : this.ema20.momentValue(close),
+        ema50: isFinal
+          ? this.ema50.nextValue(close)
+          : this.ema50.momentValue(close),
+        ema200: isFinal
+          ? this.ema200.nextValue(close)
+          : this.ema200.momentValue(close),
+        tema5: isFinal
+          ? this.tema5.nextValue(close)
+          : this.tema5.momentValue(close),
+        volumeMa: isFinal
+          ? this.volumeMa.nextValue(volume)
+          : this.volumeMa.momentValue(volume),
+        volumeOsc: this.volumeOscillator.getValue(volume)
       };
-      // Update the Map with the new kline data
+      
       this.klines.set(formattedData.time, formattedData);
-      // Emit event with kline data
       this.onKline(formattedData);
     });
 
@@ -117,12 +141,10 @@ class BinanceKlineWS {
     });
   }
 
-  // Placeholder for the event handler
   onKline(kline) {
     // This will be overridden when the instance is created
   }
 
-  // Method to get the latest klines
   getKlines() {
     return Array.from(this.klines.values());
   }

@@ -1,102 +1,185 @@
-// KlineChart class to handle the rendering of historical and real-time klines
 class KlineChart {
   constructor(domElementId) {
+    // Check if chart already exists
+    if (window.tradingViewChart) {
+      return window.tradingViewChart;
+    }
+
     this.chartProperties = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      layout: {
+        backgroundColor: '#131722',
+        textColor: '#d1d4dc',
+      },
+      grid: {
+        vertLines: {
+          color: 'rgba(42, 46, 57, 0.5)',
+        },
+        horzLines: {
+          color: 'rgba(42, 46, 57, 0.5)',
+        },
+      },
+      crosshair: {
+        mode: LightweightCharts.CrosshairMode.Normal,
+      },
       timeScale: {
         timeVisible: true,
-        secondsVisible: true,
+        secondsVisible: false,
       },
-      pane: 0,
     };
+
     const domElement = document.getElementById(domElementId);
-    this.chart = LightweightCharts.createChart(
-      domElement,
-      this.chartProperties
-    );
-    this.smaSeries = this.chart.addLineSeries({
-      color: "orange",
-      lineWidth: 5,
-      pane: 0,
-    });
-    this.emaSeries = this.chart.addLineSeries({
-      color: "dodgerblue",
-      lineWidth: 5,
-      pane: 0,
-    });
-    this.rsiSeries = this.chart.addLineSeries({
-      color: "purple",
-      lineWidth: 1,
-      pane: 1,
-    });
-    this.macdFastSeries = this.chart.addLineSeries({
-      color: "blue",
-      lineWidth: 1,
-      pane: 2,
-    });
-    this.macdSlowSeries = this.chart.addLineSeries({
-      color: "red",
-      lineWidth: 1,
-      pane: 2,
-    });
-    this.macdHistogramSeries = this.chart.addHistogramSeries({ pane: 2 });
+    this.chart = LightweightCharts.createChart(domElement, this.chartProperties);
 
-    // Initialize chart series
-    this.candleseries = this.chart.addCandlestickSeries();
+    // Store reference to prevent duplicates
+    window.tradingViewChart = this;
+
+    // Initialize all series
+    this.initializeSeries();
   }
 
-  // Method to load and set historical klines data
+  initializeSeries() {
+    // Main price series
+    this.candleseries = this.chart.addCandlestickSeries({
+      upColor: '#26a69a',
+      downColor: '#ef5350',
+      borderVisible: false,
+      wickUpColor: '#26a69a',
+      wickDownColor: '#ef5350',
+    });
+
+    // Add all EMA indicators
+    this.ema8Series = this.chart.addLineSeries({
+      color: 'red',
+      lineWidth: 1,
+      title: 'EMA 8',
+    });
+
+    this.ema20Series = this.chart.addLineSeries({
+      color: 'blue',
+      lineWidth: 1,
+      title: 'EMA 20',
+    });
+
+    this.ema50Series = this.chart.addLineSeries({
+      color: 'green',
+      lineWidth: 1,
+      title: 'EMA 50',
+    });
+
+    this.ema200Series = this.chart.addLineSeries({
+      color: 'yellow',
+      lineWidth: 2,
+      title: 'EMA 200',
+    });
+
+    // Add TEMA indicator
+    this.tema5Series = this.chart.addLineSeries({
+      color: 'orange',
+      lineWidth: 2,
+      title: 'TEMA 5',
+    });
+
+    // For volume, we'll use the price scale on the right
+    this.volumeSeries = this.chart.addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: 'volume',
+    });
+
+    this.volumeMaSeries = this.chart.addLineSeries({
+      color: 'white',
+      lineWidth: 1,
+      title: 'Volume MA',
+      priceScaleId: 'volume',
+    });
+
+    this.volumeOscSeries = this.chart.addLineSeries({
+      color: 'purple',
+      lineWidth: 1,
+      title: 'Volume OSC',
+      priceScaleId: 'volume-osc',
+    });
+
+    // Configure price scales
+    this.chart.priceScale('volume').applyOptions({
+      scaleMargins: {
+        top: 0.8,
+        bottom: 0,
+      },
+    });
+
+    this.chart.priceScale('volume-osc').applyOptions({
+      position: 'right',
+      scaleMargins: {
+        top: 0.7,
+        bottom: 0.1,
+      },
+    });
+  }
+
   loadHistoricalData(klinedata) {
-    // Set initial data for each series
+    // Clear existing data first
+    this.candleseries.setData([]);
+    this.ema8Series.setData([]);
+    this.ema20Series.setData([]);
+    this.ema50Series.setData([]);
+    this.ema200Series.setData([]);
+    this.tema5Series.setData([]);
+    this.volumeSeries.setData([]);
+    this.volumeMaSeries.setData([]);
+    this.volumeOscSeries.setData([]);
+    
+    // Load new data
     this.candleseries.setData(klinedata);
-    this.smaSeries.setData(this.extractData(klinedata, "sma"));
-    this.emaSeries.setData(this.extractData(klinedata, "ema"));
-    this.rsiSeries.setData(this.extractData(klinedata, "rsi"));
-    this.macdFastSeries.setData(this.extractNestedData(klinedata, "macd.macd"));
-    this.macdSlowSeries.setData(
-      this.extractNestedData(klinedata, "macd.signal")
-    );
-    this.macdHistogramSeries.setData(
-      this.extractNestedData(klinedata, "macd.histogram").map((d) => ({
-        color: d.value > 0 ? "mediumaquamarine" : "indianred",
-        ...d,
-      }))
-    );
-
-    console.log("Loaded historical data.");
+    
+    // Set data for each indicator series
+    this.ema8Series.setData(this.extractData(klinedata, 'ema8'));
+    this.ema20Series.setData(this.extractData(klinedata, 'ema20'));
+    this.ema50Series.setData(this.extractData(klinedata, 'ema50'));
+    this.ema200Series.setData(this.extractData(klinedata, 'ema200'));
+    this.tema5Series.setData(this.extractData(klinedata, 'tema5'));
+    
+    // Volume data
+    const volumeData = klinedata.map(d => ({
+      time: d.time,
+      value: d.volume,
+      color: d.close > d.open ? '#26a69a' : '#ef5350'
+    }));
+    
+    this.volumeSeries.setData(volumeData);
+    this.volumeMaSeries.setData(this.extractData(klinedata, 'volumeMa'));
+    this.volumeOscSeries.setData(this.extractData(klinedata, 'volumeOsc'));
   }
-  // Helper method to extract data for indicators
+
   extractData(klinedata, key) {
     return klinedata
-      .filter((d) => d[key] !== undefined)
-      .map((d) => ({ time: d.time, value: d[key] }));
+      .filter(d => d[key] !== undefined && d[key] !== null)
+      .map(d => ({ time: d.time, value: d[key] }));
   }
 
-  // Helper method to extract data for indicators
-  extractNestedData(klinedata, key) {
-    const [outerKey, innerKey] = key.split(".");
-    return klinedata
-      .filter((d) => d[outerKey] && d[outerKey][innerKey] !== undefined)
-      .map((d) => ({ time: d.time, value: d[outerKey][innerKey] }));
-  }
-  // Update chart with real-time kline data
   updateKline(kline) {
-    // Update candle series with new kline data
     this.candleseries.update(kline);
-    if (kline.sma)
-      this.smaSeries.update({ time: kline.time, value: kline.sma });
-    if (kline.ema)
-      this.emaSeries.update({ time: kline.time, value: kline.ema });
-    if (kline.rsi)
-      this.rsiSeries.update({ time: kline.time, value: kline.rsi });
-    if (kline.macd) {
-      const { macd, signal, histogram } = kline.macd;
-      this.macdSlowSeries.update({ time: kline.time, value: macd });
-      this.macdFastSeries.update({ time: kline.time, value: signal });
-      this.macdHistogramSeries.update({
-        time: kline.time,
-        value: histogram,
-        color: histogram > 0 ? "mediumaquamarine" : "indianred",
-      });
-    }
+    
+    // Update each indicator series
+    if (kline.ema8) this.ema8Series.update({ time: kline.time, value: kline.ema8 });
+    if (kline.ema20) this.ema20Series.update({ time: kline.time, value: kline.ema20 });
+    if (kline.ema50) this.ema50Series.update({ time: kline.time, value: kline.ema50 });
+    if (kline.ema200) this.ema200Series.update({ time: kline.time, value: kline.ema200 });
+    if (kline.tema5) this.tema5Series.update({ time: kline.time, value: kline.tema5 });
+    
+    // Update volume data
+    const volumeColor = kline.close > kline.open ? '#26a69a' : '#ef5350';
+    this.volumeSeries.update({
+      time: kline.time,
+      value: kline.volume,
+      color: volumeColor
+    });
+    
+    if (kline.volumeMa) this.volumeMaSeries.update({ time: kline.time, value: kline.volumeMa });
+    if (kline.volumeOsc) this.volumeOscSeries.update({ time: kline.time, value: kline.volumeOsc });
   }
 }
