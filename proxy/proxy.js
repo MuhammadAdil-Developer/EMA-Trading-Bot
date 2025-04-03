@@ -3,8 +3,15 @@ import cors from "cors";
 import { Server } from "socket.io";
 import Klines from "./klines.js";
 import mongoose from "mongoose";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const PORT = 4000;
+// Get directory name in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Use PORT from environment variable (important for Railway)
+const PORT = process.env.PORT || 4000;
 const app = express();
 
 // Store reports in memory (or consider moving to MongoDB)
@@ -13,9 +20,20 @@ const reports = [];
 // CORS middleware
 app.use(cors());
 
+// Serve static files from the client directory
+app.use('/client', express.static(path.join(__dirname, '..', 'client')));
+
+// Redirect root to the client's index.html
+app.get('/', (req, res) => {
+  res.redirect('/client/index.html');
+});
+
+// JSON parsing middleware
+app.use(express.json());
+
 // Start the server
 const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} - Access at http://localhost:${PORT}`);
 });
 
 // Socket io proxy
@@ -26,10 +44,15 @@ const io = new Server(server, {
 });
 
 // Connect to MongoDB
-await mongoose.connect('mongodb+srv://developeradil9:Juwtb7arssiVj6Dn@cluster0.o41im7s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+try {
+  await mongoose.connect('mongodb+srv://developeradil9:Juwtb7arssiVj6Dn@cluster0.o41im7s.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  });
+  console.log("Connected to MongoDB");
+} catch (err) {
+  console.error("MongoDB connection error:", err);
+}
 
 // Alert Schema
 const alertSchema = new mongoose.Schema({
@@ -78,7 +101,11 @@ io.on("connection", (socket) => {
   });
 });
 
-app.use(express.json()); 
+// Log some helpful information
+console.log(`Server started. Available routes:
+- Main app: http://localhost:${PORT}
+- Client files: http://localhost:${PORT}/client/
+- Client index: http://localhost:${PORT}/client/index.html`);
 
 app.post("/tradingview-alert", (req, res) => {
   try {
