@@ -2,6 +2,7 @@
   "name": "ema-trading-bot",
   "version": "1.0.0",
   "scripts": {
+    "build": "npm install --omit=dev"
     "start": "node proxy/proxy.js",
     "build": "npm install"
   },
