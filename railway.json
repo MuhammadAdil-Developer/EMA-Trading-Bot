@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install",
+  "buildCommand": "npm install --omit=dev",
   "startCommand": "npm start",
-  "installCommand": "npm ci"
+  "installCommand": "npm install --omit=dev"
 }
