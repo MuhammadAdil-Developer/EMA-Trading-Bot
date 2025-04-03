@@ -1,4 +1,10 @@
 {
+  "name": "ema-trading-bot",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node proxy/proxy.js",  // Path to your proxy file
+    "build": "npm install"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.21.2",
