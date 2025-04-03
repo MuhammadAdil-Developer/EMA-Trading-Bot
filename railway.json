@@ -1,5 +1,10 @@
 {
-  "buildCommand": "npm install --omit=dev",
-  "startCommand": "npm start",
-  "installCommand": "npm install --omit=dev"
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "nixpacks",
+    "buildCommand": "npm install --omit=dev"
+  },
+  "deploy": {
+    "startCommand": "npm start"
+  }
 }
