@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "scripts": {
     "preinstall": "echo 'Using custom install'",
-    "build": "npm install --omit=dev --no-audit --no-fund",
+    "build": "npm install --omit=dev --no-audit --no-fund", 
     "start": "node proxy/proxy.js"
   },
   "dependencies": {
