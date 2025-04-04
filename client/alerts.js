@@ -1,7 +1,7 @@
 class AlertManager {
     constructor() {
       this.alerts = [];
-      this.socket = io("http://127.0.0.1:4000");
+      this.socket = io("https://ema-trading-bot-production.up.railway.app");
       this.initSocketListeners();
       this.initUIHandlers();
       this.loadInitialAlerts();
@@ -15,7 +15,7 @@ class AlertManager {
   
     async loadInitialAlerts() {
       try {
-        const response = await fetch("http://127.0.0.1:4000/api/alerts?limit=50");
+        const response = await fetch("https://ema-trading-bot-production.up.railway.app/api/alerts?limit=50");
         this.alerts = await response.json();
         this.renderAlerts();
       } catch (error) {
@@ -100,7 +100,7 @@ class AlertManager {
   
     async deleteAlert(alertId) {
       try {
-        await fetch(`http://127.0.0.1:4000/api/alerts/${alertId}`, { method: "DELETE" });
+        await fetch(`https://ema-trading-bot-production.up.railway.app/api/alerts/${alertId}`, { method: "DELETE" });
         this.alerts = this.alerts.filter(a => a._id !== alertId);
         this.renderAlerts();
         this.showNotification("Alert dismissed");
