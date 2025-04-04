@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
  * Initialize WebSocket connection
  */
 function initializeSocketConnection() {
-  socket = io("http://127.0.0.1:4000");
+  socket = io("https://ema-trading-bot-production.up.railway.app");
   
   socket.on("connect", () => {
     console.log("Connected to WebSocket server");
