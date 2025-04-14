@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Extension Trigger</title>
+    <script>
+        function startAutomation() {
+            // Simpler approach: Just use postMessage which content script can catch
+            window.postMessage({ 
+                type: "FROM_PAGE", 
+                action: "startAutomation" 
+            }, "*");
+            console.log("Message posted to window");
+            
+            // Add this check to see if the extension is installed
+            setTimeout(() => {
+                alert("Automation message sent! Check the TradingView tab (if it opened) or check console logs.");
+            }, 1000);
+        }
+
+        function fallbackTrigger() {
+            console.log("Using postMessage fallback");
+            window.postMessage({ 
+                type: "FROM_PAGE", 
+                action: "startAutomation" 
+            }, "*");
+        }
+        
+        // Listen for responses from content script
+        window.addEventListener("message", (event) => {
+            if (event.data && event.data.type === "FROM_EXTENSION") {
+                console.log("Received from extension:", event.data);
+                alert(event.data.message);
+            }
+        });
+    </script>
+</head>
+<body>
+    <button onclick="startAutomation()">Start TradingView Automation</button>
+    
+    <div style="margin-top: 20px; color: red;">
+        Note: Make sure extension is installed and reloaded after changes
+    </div>
+    
+    <script>
+        console.log("Trigger page loaded");
+    </script>
+</body>
+</html>

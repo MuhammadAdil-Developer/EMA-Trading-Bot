@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Arial', sans-serif;
+        background-color: #1E222D;
+        color: #DDD;
+      }
+      #tvchart {
+        width: 98vw;
+        height: 98vh;
+      }
+      .strategy-info {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(30, 34, 45, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        z-index: 1000;
+      }
+      .strategy-info h3 {
+        margin-top: 0;
+        color: #26a69a;
+      }
+      .control-panel {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background-color: rgba(30, 34, 45, 0.8);
+        padding: 10px;
+        border-radius: 5px;
+        z-index: 1000;
+        width: 200px;
+      }
+      .control-panel h3 {
+        margin-top: 0;
+        color: #26a69a;
+      }
+      .control-panel button {
+        background-color: #26a69a;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
+        font-weight: bold;
+        width: 100%;
+      }
+      .control-panel button:hover {
+        background-color: #2bbbad;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 2000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+      }
+      .modal-content {
+        background-color: #1E222D;
+        margin: 5% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-height: 80vh;
+        border-radius: 5px;
+        overflow: auto;
+      }
+      .close-btn {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .close-btn:hover {
+        color: white;
+      }
+      #pine-script-code {
+        background-color: #131722;
+        color: #D4D4D4;
+        padding: 15px;
+        border-radius: 5px;
+        font-family: monospace;
+        white-space: pre;
+        overflow-x: auto;
+        margin-top: 10px;
+      }
+      .symbol-select {
+        width: 100%;
+        padding: 6px;
+        margin-top: 8px;
+        margin-bottom: 8px;
+        background-color: #131722;
+        color: #DDD;
+        border: 1px solid #2F323D;
+        border-radius: 4px;
+      }
+      .timeframe-select {
+        width: 100%;
+        padding: 6px;
+        margin-bottom: 15px;
+        background-color: #131722;
+        color: #DDD;
+        border: 1px solid #2F323D;
+        border-radius: 4px;
+      }
+      .modal-buttons {
+        display: flex;
+        justify-content: center; /* Center the buttons */
+        margin-top: 15px;
+        gap: 15px; /* Space between buttons */
+      }
+      
+      .modal-buttons button {
+        background-color: #26a69a;
+        color: white;
+        border: none;
+        padding: 8px 20px; /* Slightly wider padding */
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        flex: 0 0 auto; /* Don't grow or shrink */
+        white-space: nowrap; /* Prevent text wrapping */
+      }
+
+      .modal-buttons button:hover {
+        background-color: #2bbbad;
+      }
+
+      .modal-buttons .export-btn {
+        background-color: #2962FF;
+      }
+
+      .modal-buttons .export-btn:hover {
+        background-color: #4285F4;
+      }
+
+      .checkbox-container {
+        margin-bottom: 12px;
+      }
+      .checkbox-container label {
+        display: flex;
+        align-items: center;
+      }
+      .checkbox-container input {
+        margin-right: 8px;
+      }
+
+
+    </style>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TEMA Cross & Volume Strategy</title>
+  </head>
+  <body>
+
+    <!-- Auto Trading Toggle Button -->
+<div class="auto-trading-toggle-container">
+  <button id="auto-trading-toggle" class="auto-trading-btn">
+    <span class="toggle-icon">
+      <i class="fas fa-robot"></i>
+    </span>
+    <span class="toggle-text">AUTO TRADING</span>
+    <span class="toggle-switch">
+      <span class="toggle-knob"></span>
+    </span>
+  </button>
+</div>
+
+    <div id="tvchart"></div>
+    <div class="strategy-info">
+      <h3>TEMA Cross & Volume</h3>
+      <p>Current Symbol: <span id="current-symbol">BTCUSDT</span></p>
+      <p>Timeframe: <span id="current-timeframe">1h</span></p>
+    </div>
+    
+    <div class="control-panel">
+      <h3>Strategy Controls</h3>
+      <label for="symbol-selector">Symbol:</label>
+      <select id="symbol-selector" class="symbol-select">
+        <option value="BTCUSDT">BTCUSDT</option>
+        <option value="ETHUSDT">ETHUSDT</option>
+        <option value="BNBUSDT">BNBUSDT</option>
+        <option value="ADAUSDT">ADAUSDT</option>
+        <option value="SOLUSDT">SOLUSDT</option>
+        <option value="TSLA">TSLA</option>
+        <option value="AMD">AMD</option>
+      </select>
+            
+<label for="timeframe-selector">Timeframe:
+  <span class="tooltip">?
+    <span class="tooltiptext">Timeframe determines candle duration (1h = 1 hour per candle)</span>
+  </span>
+</label>
+      <select id="timeframe-selector" class="timeframe-select">
+        <option value="15m">15 MIN</option>
+        <option value="1h" selected>1 HR</option>
+        <option value="4h">4 HR</option>
+        <option value="1d">DAY</option>
+      </select>
+      
+      <button id="generate-pine-script-btn">Generate Pine Script</button>
+    </div>
+    
+    <!-- Pine Script Modal -->
+    <div id="pine-script-modal" class="modal">
+      <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>Pine Script Generator</h2>
+        <h3>Strategy: TEMA Cross & Volume</h3>
+        <p>Symbol: <span id="modal-symbol">BTCUSDT</span> | Timeframe: <span id="modal-timeframe">1h</span></p>
+        
+        <h4>Indicators to Include:</h4>
+        <div class="checkbox-container">
+          <label><input type="checkbox" id="ema8-checkbox" checked> EMA 8</label>
+        </div>
+        <div class="checkbox-container">
+          <label><input type="checkbox" id="ema20-checkbox" checked> EMA 20</label>
+        </div>
+        <div class="checkbox-container">
+          <label><input type="checkbox" id="ema50-checkbox" checked> EMA 50</label>
+        </div>
+        <div class="checkbox-container">
+          <label><input type="checkbox" id="ema200-checkbox" checked> EMA 200</label>
+        </div>
+        <div class="checkbox-container">
+          <label><input type="checkbox" id="tema5-checkbox" checked> TEMA 5</label>
+        </div>
+        <div class="checkbox-container">
+          <label><input type="checkbox" id="volume-checkbox" checked> Volume Analysis</label>
+        </div>
+        
+        <h4>Generated Pine Script:</h4>
+        <div id="pine-script-code"></div>
+        
+        <div class="modal-buttons">
+          <button id="copy-script-btn">Copy to Clipboard</button>
+          <button id="export-to-tradingview-btn" class="export-btn">Export to TradingView</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Risk Management Panel -->
+<div class="risk-management-panel">
+  <h3>Risk Management Controls</h3>
+  <div class="risk-settings-container">
+    <div class="risk-setting">
+      <label for="risk-per-trade">Risk Per Trade (%)</label>
+      <input type="range" id="risk-per-trade" min="1" max="5" step="0.5" value="2">
+      <span id="risk-per-trade-value">2%</span>
+    </div>
+    
+    <div class="risk-setting checkbox-container">
+      <label><input type="checkbox" id="circuit-breaker-checkbox" checked> Enable Circuit Breaker</label>
+      <div class="sub-setting">
+        <label for="consecutive-losses">Max Consecutive Losses</label>
+        <input type="number" id="consecutive-losses" min="1" max="10" value="3">
+      </div>
+    </div>
+    
+    <div class="risk-setting checkbox-container">
+      <label><input type="checkbox" id="gap-protection-checkbox" checked> Enable Gap Protection</label>
+      <div class="sub-setting">
+        <label for="gap-threshold">Gap Threshold (%)</label>
+        <input type="number" id="gap-threshold" min="0.5" max="10" step="0.5" value="2">
+      </div>
+    </div>
+    
+    <div class="risk-setting checkbox-container">
+      <label><input type="checkbox" id="double-orders-checkbox" checked> Enable Double Orders Strategy</label>
+      <div class="sub-setting">
+        <label for="short-term-target">Short-term Target (%)</label>
+        <input type="number" id="short-term-target" min="0.5" max="10" step="0.5" value="1.5">
+      </div>
+      <div class="sub-setting">
+        <label for="trailing-stop">Trailing Stop (%)</label>
+        <input type="number" id="trailing-stop" min="0.1" max="5" step="0.1" value="0.5">
+      </div>
+    </div>
+  </div>
+  
+  <div class="strategy-status">
+    <h4>Strategy Status</h4>
+    <p>Circuit Breaker: <span id="circuit-breaker-status" class="status-inactive">Inactive</span></p>
+    <p>Last Trade: <span id="last-trade-status">-</span></p>
+    <p>Consecutive Losses: <span id="consecutive-losses-count">0</span></p>
+    <button id="reset-circuit-breaker" class="reset-btn">Reset Circuit Breaker</button>
+  </div>
+</div>
+    
+<!-- Alerts Panel (separate from reports) -->
+<!-- Improved Alerts Panel HTML -->
+<div class="alerts-panel">
+  <div class="panel-header">
+    <h3>Alerts</h3>
+    <div class="alert-actions">
+      <button id="refresh-alerts" class="icon-btn" title="Refresh">
+        <i class="fas fa-sync-alt"></i>
+      </button>
+      <button id="clear-alerts" class="icon-btn" title="Clear All">
+        <i class="fas fa-trash-alt"></i>
+      </button>
+    </div>
+  </div>
+  
+  <div class="alerts-container">
+    <div id="no-alerts-message" class="empty-state">
+      <div class="empty-icon">
+        <i class="fas fa-bell-slash"></i>
+      </div>
+      <h4>No Alerts Received Yet</h4>
+      <p>Your trading alerts will appear here when triggered</p>
+    </div>
+    
+    <div id="alerts-list">
+      <!-- Alert items will be added here by JavaScript -->
+    </div>
+  </div>
+</div>
+
+<!-- Reports Panel (simplified version) -->
+<div class="report-panel">
+  <h3>Trading Reports</h3>
+  <div class="report-controls">
+    <button id="refresh-reports-btn" class="report-action-btn">
+      <i class="fas fa-sync-alt"></i> Refresh
+    </button>
+    <button id="export-csv-btn" class="report-action-btn">
+      <i class="fas fa-file-csv"></i> Export CSV
+    </button>
+    <button id="export-json-btn" class="report-action-btn">
+      <i class="fas fa-file-code"></i> Export JSON
+    </button>
+  </div>
+  
+  <div class="report-filters">
+    <div class="filter-group">
+      <label for="symbol-filter">Symbol:</label>
+      <select id="symbol-filter" class="filter-select">
+        <option value="all">All Symbols</option>
+        <option value="BTCUSDT">BTCUSDT</option>
+        <option value="ETHUSDT">ETHUSDT</option>
+        <!-- Add other symbols as needed -->
+      </select>
+    </div>
+    
+    <div class="filter-group">
+      <label for="date-range">Date Range:</label>
+      <select id="date-range" class="filter-select">
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+        <option value="all">All Time</option>
+      </select>
+    </div>
+  </div>
+  
+  <div class="report-table-container">
+    <div id="no-reports-message" class="empty-state">
+      <div class="empty-icon">
+        <i class="fas fa-chart-line"></i>
+      </div>
+      <h4>No Trading Activity Found</h4>
+      <p>Your trading reports will appear here when available</p>
+    </div>
+    
+    <table id="signal-reports-table" class="reports-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Symbol</th>
+          <th>Price</th>
+          <th>Position</th>
+          <th>P/L</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Reports will be populated here -->
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  </body>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.8.0/socket.io.js"
+    integrity="sha512-OovVc8Xk/+ils70VE978+ILm2IvIisZskNCaDvaTtXt7a2O3eioYv8SVKfjdVU1za9Ir/KHIqweNEGLLFk6bdw=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
+  <script src="tv.js"></script>
+  <script src="kline.js"></script>
+  <script src="pine-script-generator.js"></script>
+  <script src="risk-management.js"></script>
+  <script src="report.js"></script>
+  <script src="alerts.js"></script>
+
+  <script src="index.js"></script>
+</html>
+

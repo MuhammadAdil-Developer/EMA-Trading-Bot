@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "TradingView Auto Pine Clicker",
+  "version": "1.0",
+  "permissions": [
+    "tabs",
+    "scripting",
+    "activeTab",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://*.tradingview.com/*",
+    "http://localhost/*",
+    "file://*/*"
+  ],
+  "externally_connectable": {
+    "matches": [
+      "*://*/*",
+      "http://localhost/*",
+      "file://*/*"
+    ]
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Open TradingView"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.tradingview.com/*",
+        "http://localhost/*",
+        "file://*/*",
+        "<all_urls>"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}
