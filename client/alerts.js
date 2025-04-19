@@ -1,7 +1,7 @@
 class AlertManager {
   constructor() {
     this.alerts = [];
-    this.socket = io("http://localhost:4000");
+    this.socket = io("http://178.156.155.13:4000");
     this.initSocketListeners();
     
     document.addEventListener('DOMContentLoaded', () => {
@@ -26,7 +26,7 @@ class AlertManager {
   async loadInitialAlerts() {
     try {
       console.log("Fetching alerts...");
-      const response = await fetch("http://localhost:4000/api/alerts?limit=50");
+      const response = await fetch("http://178.156.155.13:4000/api/alerts?limit=50");
       const data = await response.json();
       console.log("Received alerts:", data);
       this.alerts = data;
@@ -337,7 +337,7 @@ class AlertManager {
   async deleteAlert(alertId) {
     try {
       if (alertId) {
-        await fetch(`http://localhost:4000/api/alerts/${alertId}`, { method: "DELETE" });
+        await fetch(`http://178.156.155.13:4000/api/alerts/${alertId}`, { method: "DELETE" });
       }
       this.alerts = this.alerts.filter(a => a._id !== alertId);
       this.renderAlerts();
@@ -351,7 +351,7 @@ class AlertManager {
   async clearAllAlerts() {
     try {
       if (confirm("Are you sure you want to clear all alerts?")) {
-        await fetch(`http://localhost:4000/api/alerts`, { method: "DELETE" });
+        await fetch(`http://178.156.155.13:4000/api/alerts`, { method: "DELETE" });
         this.alerts = [];
         this.renderAlerts();
         this.showNotification("All alerts cleared");

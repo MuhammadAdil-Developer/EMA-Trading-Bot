@@ -3,7 +3,7 @@
 // ==============================================
 // Global Variables & DOM References
 // ==============================================
-let currentSymbol = "BTCUSDT";
+let currentSymbol = "TSLA";
 let currentTimeframe = "1h";
 let pineScriptGenerator = null;
 let socket = null;
@@ -49,6 +49,23 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+function showLoader(message = "Loading data...") {
+  const loader = document.getElementById('loader');
+  const loaderText = document.getElementById('loader-text');
+  if (loader && loaderText) {
+    loaderText.textContent = message;
+    loader.classList.add('active');
+  }
+}
+
+function hideLoader() {
+  const loader = document.getElementById('loader');
+  if (loader) {
+    loader.classList.remove('active');
+  }
+}
+
+
 // ==============================================
 // Core Functions
 // ==============================================
@@ -56,25 +73,63 @@ document.addEventListener("DOMContentLoaded", () => {
 /**
  * Initialize WebSocket connection
  */
+// In index.js, update the socket initialization:
+
 function initializeSocketConnection() {
-  socket = io("http://localhost:4000");
+  // Close existing socket if any
+  if (socket) {
+    socket.close();
+  }
+  
+  // Show loader when connecting
+  showLoader("Connecting to data server...");
+  
+  socket = io("http://178.156.155.13:4000");
   
   socket.on("connect", () => {
     console.log("Connected to WebSocket server");
+    showNotification("Connected to data server", "success");
+    
+    // Change loader message when requesting data
+    showLoader(`Loading ${currentSymbol} data...`);
+    
+    // Request current symbol data after connection
+    socket.emit("symbol-change", currentSymbol, (response) => {
+      console.log("Initial data request acknowledged:", response);
+    });
   });
   
   socket.on("disconnect", () => {
     console.log("Disconnected from WebSocket server");
+    showErrorNotification("Disconnected from data server");
+    hideLoader();
   });
   
   socket.on("kline", (data) => {
+    if (!klineChart) {
+      console.error("Chart not initialized");
+      return;
+    }
+    
     if (Array.isArray(data)) {
+      console.log(`Received ${data.length} historical klines`);
       klineChart.loadHistoricalData(data);
+      showSuccessNotification(`Loaded ${currentSymbol} data successfully`);
+      hideLoader(); // Hide loader when data is loaded
     } else {
+      // For single updates
       klineChart.updateKline(data);
     }
   });
+  
+  // Add error handling
+  socket.on("connect_error", (error) => {
+    console.error("Connection error:", error);
+    showErrorNotification("Failed to connect to data server");
+    hideLoader();
+  });
 }
+
 
 
 /**
@@ -145,173 +200,6 @@ function initializeUIEventListeners() {
   });
 
 
-  // document.getElementById('export-to-tradingview-btn')?.addEventListener('click', async () => {
-  //   try {
-  //     // Show loading indicator
-  //     showSuccessNotification('Preparing TradingView export...');
-      
-  //     // Generate the Pine Script
-  //     const pineScript = pineScriptGenerator.generateScript();
-      
-  //     // Copy to clipboard for backup/manual entry
-  //     await navigator.clipboard.writeText(pineScript);
-      
-  //     // Open TradingView in a new tab
-  //     const tradingViewTab = window.open('https://www.tradingview.com/chart/', '_blank');
-      
-  //     // Create the automation script that will run in the new tab
-  //     const automationScript = `
-  //       // This script will run after TradingView loads
-  //       (function() {
-  //         // Function to wait for an element to appear
-  //         function waitForElement(selector, timeout = 30000) {
-  //           return new Promise((resolve, reject) => {
-  //             const startTime = Date.now();
-              
-  //             const checkInterval = setInterval(() => {
-  //               const element = document.querySelector(selector);
-  //               if (element) {
-  //                 clearInterval(checkInterval);
-  //                 resolve(element);
-  //               } else if (Date.now() - startTime > timeout) {
-  //                 clearInterval(checkInterval);
-  //                 reject(new Error('Element not found: ' + selector));
-  //               }
-  //             }, 500);
-  //           });
-  //         }
-          
-  //         // Main automation function
-  //         async function automate() {
-  //           try {
-  //             console.log("TradingView automation starting...");
-              
-  //             // Wait for the page to load properly
-  //             await new Promise(r => setTimeout(r, 5000));
-              
-  //             // Find and click the Pine Editor button
-  //             const pineEditorSelectors = [
-  //               'button[data-tooltip="Open Pine Editor"]',
-  //               'button[data-name="scripteditor"]',
-  //               'button:has-text("Pine Editor")'
-  //             ];
-              
-  //             let pineEditorButton = null;
-  //             for (const selector of pineEditorSelectors) {
-  //               try {
-  //                 pineEditorButton = await waitForElement(selector);
-  //                 if (pineEditorButton) {
-  //                   console.log("Found Pine Editor button");
-  //                   break;
-  //                 }
-  //               } catch (e) {
-  //                 // Try next selector
-  //               }
-  //             }
-              
-  //             if (pineEditorButton) {
-  //               console.log("Clicking Pine Editor button");
-  //               pineEditorButton.click();
-                
-  //               // Wait for editor to appear
-  //               await new Promise(r => setTimeout(r, 2000));
-                
-  //               // Look for the code editor (Monaco or ACE)
-  //               const editorSelectors = [
-  //                 '.monaco-editor .view-lines',
-  //                 '.ace_editor',
-  //                 '.view-lines'
-  //               ];
-                
-  //               let editorFound = false;
-  //               for (const selector of editorSelectors) {
-  //                 try {
-  //                   const editor = await waitForElement(selector, 5000);
-  //                   if (editor) {
-  //                     console.log("Found code editor");
-  //                     editorFound = true;
-                      
-  //                     // Focus on the editor and prepare to paste
-  //                     editor.click();
-                      
-  //                     // Select all existing text (Ctrl+A)
-  //                     document.execCommand('selectAll');
-  //                     // Delete it
-  //                     document.execCommand('delete');
-                      
-  //                     // Get text from clipboard and paste it
-  //                     const pineScript = \`${pineScript.replace(/`/g, '\\`')}\`;
-                      
-  //                     // Use clipboard API to paste the text
-  //                     const textArea = document.createElement('textarea');
-  //                     textArea.style.position = 'fixed';
-  //                     textArea.style.opacity = '0';
-  //                     textArea.value = pineScript;
-  //                     document.body.appendChild(textArea);
-  //                     textArea.select();
-  //                     document.execCommand('copy');
-                      
-  //                     // Focus back on the editor and paste
-  //                     editor.click();
-  //                     document.execCommand('paste');
-                      
-  //                     document.body.removeChild(textArea);
-  //                     console.log("Pasted Pine Script successfully");
-  //                     break;
-  //                   }
-  //                 } catch (e) {
-  //                   console.error("Error with editor selector:", e);
-  //                   // Try next selector
-  //                 }
-  //               }
-                
-  //               if (!editorFound) {
-  //                 console.error("Could not find code editor");
-  //               }
-  //             } else {
-  //               console.error("Could not find Pine Editor button");
-  //             }
-  //           } catch (error) {
-  //             console.error("Automation error:", error);
-  //           }
-  //         }
-          
-  //         // Start automation after page has loaded
-  //         if (document.readyState === 'complete') {
-  //           automate();
-  //         } else {
-  //           window.addEventListener('load', automate);
-  //         }
-  //       })();
-  //     `;
-      
-  //     // Wait for the new tab to load
-  //     setTimeout(() => {
-  //       try {
-  //         // Try to inject the automation script
-  //         // Note: This may not work due to browser security restrictions
-  //         if (tradingViewTab && !tradingViewTab.closed) {
-  //           tradingViewTab.eval(automationScript);
-  //         }
-  //       } catch (injectionError) {
-  //         console.error('Script injection error:', injectionError);
-  //         showNotification('Please paste the Pine Script manually into TradingView', 'warning');
-  //       }
-  //     }, 3000);
-      
-  //     showSuccessNotification('Pine Script copied to clipboard! TradingView opened in new tab.');
-      
-  //   } catch (error) {
-  //     console.error('Export error:', error);
-  //     showErrorNotification('Failed to export to TradingView');
-      
-  //     // Fall back to direct link
-  //     const pineScript = pineScriptGenerator.generateScript();
-  //     navigator.clipboard.writeText(pineScript);
-  //     window.open('https://www.tradingview.com/chart/', '_blank');
-  //   }
-  // });
-      
     // NEW CODE: Copy to Clipboard Button
     document.getElementById('copy-script-btn')?.addEventListener('click', () => {
       const codeElement = document.getElementById('pine-script-code');
@@ -321,6 +209,7 @@ function initializeUIEventListeners() {
     });
     
 }
+
 
 
 
@@ -401,17 +290,40 @@ function stopAutoTrading() {
 /**
  * Handle symbol change event
  */
-function handleSymbolChange() {
-  currentSymbol = this.value;
-  updateDisplayElements();
-  pineScriptGenerator.setSymbol(currentSymbol);
-  saveSettings();
+function handleSymbolChange(event) {
+  const newSymbol = event.target.value;
+  const oldSymbol = currentSymbol;
+  currentSymbol = newSymbol;
   
-  // Notify server of symbol change
-  if (socket && socket.connected) {
-    socket.emit("symbol-change", currentSymbol);
+  // Clear chart data immediately
+  if (klineChart) {
+    klineChart.clearData();
+  }
+  
+  // Show loading loader and notification
+  const isStock = !(newSymbol.endsWith('USDT') || newSymbol.endsWith('BUSD') || newSymbol.endsWith('BTC'));
+  const loadingMessage = isStock 
+    ? `Loading ${newSymbol} stock data... This may take a few moments.`
+    : `Loading ${newSymbol} data...`;
+  
+  showLoader(loadingMessage);
+  
+  // Show symbol change notification  
+  showNotification(`Switching from ${oldSymbol} to ${newSymbol}`, "info");
+  
+  updateDisplayElements();
+  
+  // Request new data from server
+  if (socket) {
+    socket.emit("symbol-change", newSymbol, (response) => {
+      console.log("Symbol change acknowledged:", response);
+    });
   }
 }
+
+
+
+
 
 /**
  * Handle timeframe change event
@@ -419,14 +331,32 @@ function handleSymbolChange() {
 function handleTimeframeChange() {
   currentTimeframe = this.value;
   updateDisplayElements();
-  pineScriptGenerator.setTimeframe(currentTimeframe);
-  saveSettings();
   
-  // Notify server of timeframe change
+  // Show loading notification first
+  showNotification(`Loading ${currentTimeframe} timeframe...`, "info");
+  
   if (socket && socket.connected) {
-    socket.emit("timeframe-change", currentTimeframe);
+    // Reset the chart first to indicate loading
+    if (klineChart) {
+      klineChart.clearData();
+    }
+    
+    // Make sure pineScriptGenerator is updated
+    pineScriptGenerator.setTimeframe(currentTimeframe);
+    
+    // Emit timeframe-change event and add a callback to confirm receipt
+    socket.emit("timeframe-change", currentTimeframe, (response) => {
+      console.log("Server acknowledged timeframe change:", response);
+    });
+    
+    // Save settings after server confirms
+    saveSettings();
+  } else {
+    console.error("Socket not connected, cannot change timeframe");
+    showErrorNotification("Connection error. Please refresh the page.");
   }
 }
+
 
 /**
  * Handle risk setting changes
@@ -490,13 +420,21 @@ function saveSettings() {
 /**
  * Load settings from localStorage
  */
+// Update the loadSettings function to handle TSLA as default
 function loadSettings() {
   try {
     const savedData = localStorage.getItem("tradingSettings");
-    if (!savedData) return;
+    if (!savedData) {
+      // No saved settings, ensure TSLA is set as default
+      currentSymbol = "TSLA";
+      return;
+    }
 
     const settings = JSON.parse(savedData);
-    if (!settings) return;
+    if (!settings) {
+      currentSymbol = "TSLA";
+      return;
+    }
 
     // Validate loaded settings
     if (settings.version !== 2) {
@@ -510,6 +448,7 @@ function loadSettings() {
     
   } catch (error) {
     console.error("Failed to load settings:", error);
+    currentSymbol = "TSLA"; // Fallback to TSLA on error
   }
 }
 
@@ -521,6 +460,10 @@ function applyLoadedSettings(settings) {
   if (settings.symbol) {
     currentSymbol = settings.symbol;
     elements.symbolSelector.value = currentSymbol;
+  } else {
+    // No symbol in settings, use TSLA
+    currentSymbol = "TSLA";
+    elements.symbolSelector.value = "TSLA";
   }
 
   if (settings.timeframe) {
@@ -532,6 +475,7 @@ function applyLoadedSettings(settings) {
   if (!pineScriptGenerator) {
     pineScriptGenerator = new PineScriptGenerator(currentSymbol, currentTimeframe);
   }
+
 
   // Risk Settings
   if (settings.riskSettings) {
@@ -567,11 +511,24 @@ function applyLoadedSettings(settings) {
  * Update all display elements with current values
  */
 function updateDisplayElements() {
-  elements.currentSymbolDisplay.textContent = currentSymbol;
-  elements.currentTimeframeDisplay.textContent = currentTimeframe;
-  elements.modalSymbolDisplay.textContent = currentSymbol;
-  elements.modalTimeframeDisplay.textContent = currentTimeframe;
+  // Update display elements
+  if (elements.currentSymbolDisplay) {
+    elements.currentSymbolDisplay.textContent = currentSymbol;
+  }
+  
+  if (elements.currentTimeframeDisplay) {
+    elements.currentTimeframeDisplay.textContent = currentTimeframe;
+  }
+  
+  if (elements.modalSymbolDisplay) {
+    elements.modalSymbolDisplay.textContent = currentSymbol;
+  }
+  
+  if (elements.modalTimeframeDisplay) {
+    elements.modalTimeframeDisplay.textContent = currentTimeframe;
+  }
 }
+
 
 /**
  * Get current risk settings from UI
@@ -733,51 +690,51 @@ function stopAutoTrading() {
   // Add your auto trading stop logic here
 }
 
-function showNotification(message, type = 'success') {
-  // Reuse your existing notification function or create a simple one
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  notification.textContent = message;
+function showNotification(message, type = "info") {
+  // Create notification element if it doesn't exist
+  const notification = document.createElement("div");
+  notification.className = `notification ${type}`;
+  notification.innerHTML = `
+    <div class="notification-content">
+      <i class="fas ${getIconForType(type)}"></i>
+      <span>${message}</span>
+    </div>
+  `;
+  
+  // Add to document
   document.body.appendChild(notification);
-
+  
+  // Show notification
   setTimeout(() => {
-    notification.classList.add('fade-out');
-    setTimeout(() => document.body.removeChild(notification), 500);
+    notification.classList.add("show");
+  }, 10);
+  
+  // Auto-remove after delay
+  setTimeout(() => {
+    notification.classList.remove("show");
+    setTimeout(() => {
+      notification.remove();
+    }, 300);
   }, 3000);
 }
 
-
-// NEW CODE: Notification Functions (agar nahi hai to add karein)
 function showSuccessNotification(message) {
-  const notification = document.createElement('div');
-  notification.style.position = 'fixed';
-  notification.style.bottom = '20px';
-  notification.style.right = '20px';
-  notification.style.backgroundColor = '#26a69a';
-  notification.style.color = 'white';
-  notification.style.padding = '10px 20px';
-  notification.style.borderRadius = '4px';
-  notification.style.zIndex = '9999';
-  notification.textContent = message;
-  document.body.appendChild(notification);
-  setTimeout(() => document.body.removeChild(notification), 3000);
+  showNotification(message, "success");
 }
 
 function showErrorNotification(message) {
-  const notification = document.createElement('div');
-  notification.style.position = 'fixed';
-  notification.style.bottom = '20px';
-  notification.style.right = '20px';
-  notification.style.backgroundColor = '#ef5350';
-  notification.style.color = 'white';
-  notification.style.padding = '10px 20px';
-  notification.style.borderRadius = '4px';
-  notification.style.zIndex = '9999';
-  notification.textContent = message;
-  document.body.appendChild(notification);
-  setTimeout(() => document.body.removeChild(notification), 3000);
+  showNotification(message, "error");
 }
 
+function getIconForType(type) {
+  switch (type) {
+    case "success": return "fa-check-circle";
+    case "error": return "fa-exclamation-circle";
+    case "warning": return "fa-exclamation-triangle";
+    case "info": 
+    default: return "fa-info-circle";
+  }
+}
 
 // ==============================================
 // Export for Testing (if needed)

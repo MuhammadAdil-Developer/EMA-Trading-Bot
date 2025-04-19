@@ -166,6 +166,14 @@
   </head>
   <body>
 
+  <div id="loader" class="loader-overlay">
+    <div class="loader-content">
+      <div class="spinner"></div>
+      <p id="loader-text">Loading data...</p>
+    </div>
+  </div>
+  
+
     <!-- Auto Trading Toggle Button -->
 <div class="auto-trading-toggle-container">
   <button id="auto-trading-toggle" class="auto-trading-btn">
@@ -190,13 +198,13 @@
       <h3>Strategy Controls</h3>
       <label for="symbol-selector">Symbol:</label>
       <select id="symbol-selector" class="symbol-select">
+        <option value="TSLA">TSLA</option>
+        <option value="AMD">AMD</option>
         <option value="BTCUSDT">BTCUSDT</option>
         <option value="ETHUSDT">ETHUSDT</option>
         <option value="BNBUSDT">BNBUSDT</option>
         <option value="ADAUSDT">ADAUSDT</option>
         <option value="SOLUSDT">SOLUSDT</option>
-        <option value="TSLA">TSLA</option>
-        <option value="AMD">AMD</option>
       </select>
             
 <label for="timeframe-selector">Timeframe:

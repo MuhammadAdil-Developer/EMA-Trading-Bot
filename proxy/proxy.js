@@ -44,6 +44,13 @@ const alertSchema = new mongoose.Schema({
 });
 
 const Alert = mongoose.model('Alert', alertSchema);
+let currentSymbol = "TSLA";
+let currentTimeframe = "1h";
+let binanceKlineWS = null;
+
+// Initialize BinanceKlineWS
+binanceKlineWS = new Klines(currentSymbol, currentTimeframe);
+
 
 // Helper functions
 function classifySignalType(message) {
@@ -93,37 +100,85 @@ async function saveAlertToMongo(reportEntry) {
 }
 
 async function startServer() {
-  // Attempt MongoDB connection (but don't block server startup)
-  connectToMongoDB();
+  // Attempt MongoDB connection
+  await connectToMongoDB();
 
-  // Initialize BinanceKlineWS
-  const binanceKlineWS = new Klines();
-
-  // Start server
+  // Start Express server first
   const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
   });
 
-  // Socket.io setup
+  // Then initialize Socket.IO
   const io = new Server(server, {
     cors: {
-      origin: "*",
-    },
+      origin: "*", // Or specify your client origin
+      methods: ["GET", "POST"]
+    }
   });
 
-  // Socket.io events
+  // Initialize BinanceKlineWS with TSLA
+  binanceKlineWS = new Klines(currentSymbol, currentTimeframe);
+
+  // Update the socket connection handler
   io.on("connection", (socket) => {
     console.log("A user connected");
+    
+    // Show loader message for initial data
+    console.log(`Sending initial ${currentSymbol} data...`);
+    
+    // Send initial data
     socket.emit("kline", binanceKlineWS.getKlines());
-
-    binanceKlineWS.onKline = (kline) => {
-      socket.emit("kline", kline);
-    };
-
+    
+    socket.on("symbol-change", async (symbol) => {
+      console.log(`Symbol changed to: ${symbol}`);
+      currentSymbol = symbol;
+      
+      // Clean up the old connection
+      if (binanceKlineWS) {
+        binanceKlineWS.cleanup();
+      }
+      
+      // Create a new instance
+      binanceKlineWS = new Klines(currentSymbol, currentTimeframe);
+      
+      // Set up the onKline handler before anything else
+      binanceKlineWS.onKline = (kline) => {
+        socket.emit("kline", kline);
+      };
+      
+      // For stock symbols, we need a longer timeout
+      const isStock = !(symbol.endsWith('USDT') || symbol.endsWith('BUSD') || symbol.endsWith('BTC'));
+      const initTimeout = isStock ? 3000 : 1000;
+      
+      // Wait for initialization before sending data
+      console.log(`Waiting ${initTimeout}ms for ${symbol} data initialization...`);
+      await new Promise(resolve => setTimeout(resolve, initTimeout));
+      
+      // Send the current data to the client
+      const klines = binanceKlineWS.getKlines();
+      
+      if (klines.length === 0) {
+        console.warn(`No klines available for ${symbol}, retrying...`);
+        // Try again with a longer timeout
+        setTimeout(() => {
+          const retryKlines = binanceKlineWS.getKlines();
+          console.log(`Retry: Sending ${retryKlines.length} klines to client for ${symbol}`);
+          socket.emit("kline", retryKlines);
+        }, 5000);
+      } else {
+        console.log(`Sending ${klines.length} klines to client for ${symbol}`);
+        socket.emit("kline", klines);
+      }
+    });
+  
+    
     socket.on("disconnect", () => {
       console.log("A user disconnected");
     });
   });
+
+
+  
 
   // TradingView Alert Endpoint
   app.post("/tradingview-alert", async (req, res) => {

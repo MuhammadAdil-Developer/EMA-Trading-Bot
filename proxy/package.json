@@ -16,7 +16,9 @@
     "express": "^4.21.1",
     "got": "^14.4.6",
     "mongoose": "^8.13.1",
+    "puppeteer": "^24.6.1",
     "socket.io": "^4.8.1",
+    "stocks.js": "^0.0.19",
     "ws": "^8.18.0"
   },
   "devDependencies": {

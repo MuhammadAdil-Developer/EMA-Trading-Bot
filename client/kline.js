@@ -3,6 +3,8 @@ class KlineChart {
     // Check if chart already exists
     if (window.tradingViewChart) {
       return window.tradingViewChart;
+
+      
     }
 
     this.chartProperties = {
@@ -34,7 +36,7 @@ class KlineChart {
 
     // Store reference to prevent duplicates
     window.tradingViewChart = this;
-
+    
     // Initialize all series
     this.initializeSeries();
   }
@@ -120,6 +122,19 @@ class KlineChart {
       },
     });
   }
+
+  clearData() {
+    this.candleseries.setData([]);
+    this.ema8Series.setData([]);
+    this.ema20Series.setData([]);
+    this.ema50Series.setData([]);
+    this.ema200Series.setData([]);
+    this.tema5Series.setData([]);
+    this.volumeSeries.setData([]);
+    this.volumeMaSeries.setData([]);
+    this.volumeOscSeries.setData([]);
+  }
+
 
   loadHistoricalData(klinedata) {
     // Clear existing data first
