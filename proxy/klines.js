@@ -88,7 +88,7 @@ class BinanceKlineWS {
       try {
         if (isCrypto) {
           // For crypto, use Binance API
-          const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${this.symbol}&interval=${
+          const binanceUrl = `https://api.binance.us/api/v3/klines?symbol=${this.symbol}&interval=${
             this.interval
           }&limit=1000`;
           
@@ -442,7 +442,7 @@ class BinanceKlineWS {
 
   connectWebSocket() {
     this.ws = new WebSocket(
-      `wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@kline_${this.interval}`
+      `wss://stream.binance.us:9443/ws/${this.symbol.toLowerCase()}@kline_${this.interval}`
     );
   
     this.ws.on("open", () => {

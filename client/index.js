@@ -118,7 +118,7 @@ function initializeSocketConnection() {
   // Show loader when connecting
   showLoader("Connecting to data server...");
   
-  socket = io("http://localhost:4000");
+  socket = io("http://178.156.155.13:4000");
   
   socket.on("connect", () => {
     console.log("Connected to WebSocket server");
