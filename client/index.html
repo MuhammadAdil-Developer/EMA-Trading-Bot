@@ -117,21 +117,21 @@
       }
       .modal-buttons {
         display: flex;
-        justify-content: center; /* Center the buttons */
+        justify-content: center;
         margin-top: 15px;
-        gap: 15px; /* Space between buttons */
+        gap: 15px;
       }
       
       .modal-buttons button {
         background-color: #26a69a;
         color: white;
         border: none;
-        padding: 8px 20px; /* Slightly wider padding */
+        padding: 8px 20px;
         border-radius: 4px;
         cursor: pointer;
         font-weight: bold;
-        flex: 0 0 auto; /* Don't grow or shrink */
-        white-space: nowrap; /* Prevent text wrapping */
+        flex: 0 0 auto;
+        white-space: nowrap;
       }
 
       .modal-buttons button:hover {
@@ -157,6 +157,51 @@
         margin-right: 8px;
       }
 
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background-color: #333;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        opacity: 0;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        transform: translateY(-20px);
+        z-index: 3000;
+      }
+
+      .notification.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .notification.success {
+        background-color: #26a69a;
+      }
+
+      .notification.error {
+        background-color: #d32f2f;
+      }
+
+      .notification.warning {
+        background-color: #f57c00;
+      }
+
+      .notification.info {
+        background-color: #0288d1;
+      }
+
+      .notification-content {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .notification-content i {
+        font-size: 18px;
+      }
 
     </style>
     <meta charset="UTF-8" />
@@ -172,7 +217,6 @@
       <p id="loader-text">Loading data...</p>
     </div>
   </div>
-  
 
     <!-- Auto Trading Toggle Button -->
 <div class="auto-trading-toggle-container">
@@ -225,7 +269,7 @@
     <!-- Pine Script Modal -->
     <div id="pine-script-modal" class="modal">
       <div class="modal-content">
-        <span class="close-btn">&times;</span>
+        <span class="close-btn">×</span>
         <h2>Pine Script Generator</h2>
         <h3>Strategy: TEMA Cross & Volume</h3>
         <p>Symbol: <span id="modal-symbol">BTCUSDT</span> | Timeframe: <span id="modal-timeframe">1h</span></p>
@@ -415,7 +459,5 @@
   <script src="risk-management.js"></script>
   <script src="report.js"></script>
   <script src="alerts.js"></script>
-
   <script src="index.js"></script>
 </html>
-

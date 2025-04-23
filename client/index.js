@@ -8,6 +8,7 @@ let currentTimeframe = "1h";
 let pineScriptGenerator = null;
 let socket = null;
 let klineChart = null;
+let loaderTimeout = null;
 
 // DOM Elements
 const elements = {
@@ -34,17 +35,25 @@ const elements = {
 // Main Initialization
 // ==============================================
 document.addEventListener("DOMContentLoaded", () => {
+  console.log("Initial timeframe value:", currentTimeframe);
+  currentTimeframe = "1h"; // Ensure global variable is set
+  elements.timeframeSelector.value = "1h"; // Force dropdown to 1h
+  console.log("After forcing timeframe:", currentTimeframe);
+  console.log("Dropdown value set to:", elements.timeframeSelector.value);
+
   try {
     initializePineScriptGenerator();
     initializeSocketConnection();
     initializeChart();
-    initializeUIEventListeners();  // <-- Yahan pe naya code add hoga
+    initializeUIEventListeners();
     initializeRiskManagement();
-    loadSettings();
+    loadSettings(); // Load settings after setting default
     console.log("Application initialized successfully");
   } catch (error) {
     console.error("Application initialization failed:", error);
     showErrorNotification("Failed to initialize application");
+    elements.timeframeSelector.value = "1h"; // Fallback to 1h on error
+    console.log("Dropdown value set to:", elements.timeframeSelector.value);
   }
 });
 
@@ -58,12 +67,37 @@ function showLoader(message = "Loading data...") {
   }
 }
 
+function showLoaderWithTimeout(message, timeoutMs = 15000) {
+  // Clear any existing timeout
+  if (loaderTimeout) {
+    clearTimeout(loaderTimeout);
+  }
+  
+  // Show the loader
+  showLoader(message);
+  
+  // Set a timeout to automatically hide the loader
+  loaderTimeout = setTimeout(() => {
+    hideLoader();
+    showErrorNotification("Data loading timed out. Please try again.");
+  }, timeoutMs);
+}
+
+// Update the hideLoader function to also clear the timeout
 function hideLoader() {
   const loader = document.getElementById('loader');
   if (loader) {
     loader.classList.remove('active');
   }
+  
+  // Clear timeout if it exists
+  if (loaderTimeout) {
+    clearTimeout(loaderTimeout);
+    loaderTimeout = null;
+  }
 }
+
+
 
 
 // ==============================================
@@ -84,7 +118,7 @@ function initializeSocketConnection() {
   // Show loader when connecting
   showLoader("Connecting to data server...");
   
-  socket = io("http://178.156.155.13:4000");
+  socket = io("http://localhost:4000");
   
   socket.on("connect", () => {
     console.log("Connected to WebSocket server");
@@ -108,27 +142,63 @@ function initializeSocketConnection() {
   socket.on("kline", (data) => {
     if (!klineChart) {
       console.error("Chart not initialized");
+      hideLoader(); // Hide loader on error
       return;
     }
     
     if (Array.isArray(data)) {
       console.log(`Received ${data.length} historical klines`);
-      klineChart.loadHistoricalData(data);
-      showSuccessNotification(`Loaded ${currentSymbol} data successfully`);
-      hideLoader(); // Hide loader when data is loaded
+      
+      if (data.length === 0) {
+        console.warn("Empty kline data received");
+        showErrorNotification(`No data available for ${currentSymbol} on ${currentTimeframe} timeframe`);
+        hideLoader();
+        return;
+      }
+      
+      try {
+        klineChart.loadHistoricalData(data);
+        showSuccessNotification(`Loaded ${currentSymbol} data successfully`);
+        hideLoader(); // Hide loader when data is loaded
+      } catch (error) {
+        console.error("Error loading historical data:", error);
+        hideLoader();
+        showErrorNotification(`Error loading data: ${error.message}`);
+      }
     } else {
       // For single updates
       klineChart.updateKline(data);
     }
   });
   
-  // Add error handling
-  socket.on("connect_error", (error) => {
-    console.error("Connection error:", error);
-    showErrorNotification("Failed to connect to data server");
-    hideLoader();
+  
+  
+  // Also add a timeout for the loader
+  socket.on("connect", () => {
+    console.log("Connected to WebSocket server");
+    showNotification("Connected to data server", "success");
+    
+    // Change loader message when requesting data
+    showLoader(`Loading ${currentSymbol} data...`);
+    
+    // Request current symbol data after connection
+    socket.emit("symbol-change", currentSymbol, (response) => {
+      console.log("Initial data request acknowledged:", response);
+      
+      // Add a timeout to hide loader if no response
+      setTimeout(() => {
+        hideLoader();
+      }, 15000); // 15 second timeout
+    });
   });
+  socket.on("timeframe_error", (error) => {
+    console.error("Timeframe error:", error);
+    hideLoader();
+    showErrorNotification(`Error loading ${currentTimeframe} data: ${error}`);
+  }); 
+  
 }
+
 
 
 
@@ -156,14 +226,65 @@ function initializePineScriptGenerator() {
  * Set up all UI event listeners
  */
 function initializeUIEventListeners() {
-  // Only add listeners if elements exist
-  if (elements.symbolSelector) {
-    elements.symbolSelector.addEventListener("change", handleSymbolChange);
-  }
+  // Symbol change listener
+  elements.symbolSelector.addEventListener("change", (e) => {
+    currentSymbol = e.target.value;
+    updateDisplayElements();
+    if (socket) {
+      showLoader(`Loading ${currentSymbol} data...`);
+      socket.emit("symbol-change", currentSymbol);
+    }
+  });
   
-  if (elements.timeframeSelector) {
-    elements.timeframeSelector.addEventListener("change", handleTimeframeChange);
-  }
+  // Add timeframe change listener
+  elements.timeframeSelector.addEventListener("change", (e) => {
+    currentTimeframe = e.target.value;
+    updateDisplayElements();
+         
+    if (socket && socket.connected) {
+      // Make sure to properly clear chart before requesting new data
+      if (klineChart) {
+        klineChart.clearData();
+      }
+           
+      showLoader(`Loading ${currentSymbol} ${currentTimeframe} data...`);
+           
+      // Send both symbol and timeframe as an object
+      socket.emit("timeframe-change", { 
+        symbol: currentSymbol, 
+        timeframe: currentTimeframe 
+      });
+      
+      // Instead of using a generic timeout, let's track if data has been received
+      let dataReceived = false;
+      
+      // Create one-time event handler for receiving kline data
+      const onKlineDataReceived = (data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          dataReceived = true;
+          hideLoader();
+          socket.off("kline", onKlineDataReceived); // Remove this one-time handler
+        }
+      };
+      
+      // Listen for kline data once
+      socket.on("kline", onKlineDataReceived);
+      
+      // Still keep a safety timeout, but now we check our flag
+      setTimeout(() => {
+        if (!dataReceived) {
+          hideLoader();
+          showErrorNotification(`Failed to load data for ${currentTimeframe} timeframe`);
+          socket.off("kline", onKlineDataReceived); // Clean up listener if timeout occurs
+        }
+      }, 10000); // 10 second timeout
+    }
+  });
+  
+  
+  
+  
+
 
   // Risk management controls - check each one
   const riskControls = [
@@ -334,6 +455,7 @@ function handleTimeframeChange() {
   
   // Show loading notification first
   showNotification(`Loading ${currentTimeframe} timeframe...`, "info");
+  showLoader(`Loading ${currentSymbol} ${currentTimeframe} data...`);
   
   if (socket && socket.connected) {
     // Reset the chart first to indicate loading
@@ -342,16 +464,30 @@ function handleTimeframeChange() {
     }
     
     // Make sure pineScriptGenerator is updated
-    pineScriptGenerator.setTimeframe(currentTimeframe);
+    if (pineScriptGenerator) {
+      pineScriptGenerator.setTimeframe(currentTimeframe);
+    }
     
-    // Emit timeframe-change event and add a callback to confirm receipt
-    socket.emit("timeframe-change", currentTimeframe, (response) => {
+    // Send both symbol and timeframe to server
+    socket.emit("timeframe-change", { 
+      symbol: currentSymbol, 
+      timeframe: currentTimeframe 
+    }, (response) => {
       console.log("Server acknowledged timeframe change:", response);
     });
     
-    // Save settings after server confirms
+    // Add timeout to hide loader if data doesn't arrive
+    setTimeout(() => {
+      hideLoader();
+      if (klineChart && klineChart.getKlines && klineChart.getKlines().length === 0) {
+        showErrorNotification("Failed to load data for this timeframe. Please try again.");
+      }
+    }, 15000); // 15 seconds timeout
+    
+    // Save settings after change
     saveSettings();
   } else {
+    hideLoader();
     console.error("Socket not connected, cannot change timeframe");
     showErrorNotification("Connection error. Please refresh the page.");
   }
@@ -425,13 +561,17 @@ function loadSettings() {
   try {
     const savedData = localStorage.getItem("tradingSettings");
     if (!savedData) {
-      // No saved settings, ensure TSLA is set as default
+      // No saved settings, ensure 1h is set as default
+      currentTimeframe = "1h";
+      elements.timeframeSelector.value = "1h";
       currentSymbol = "TSLA";
       return;
     }
 
     const settings = JSON.parse(savedData);
     if (!settings) {
+      currentTimeframe = "1h";
+      elements.timeframeSelector.value = "1h";
       currentSymbol = "TSLA";
       return;
     }
@@ -439,16 +579,23 @@ function loadSettings() {
     // Validate loaded settings
     if (settings.version !== 2) {
       console.warn("Settings version mismatch, performing migration");
-      return migrateSettings(settings);
+      migrateSettings(settings);
+      currentTimeframe = "1h"; // Default to 1h after migration
+      elements.timeframeSelector.value = "1h";
+      return;
     }
 
-    // Apply loaded settings
-    applyLoadedSettings(settings);
+    // Apply loaded settings, but prioritize 1h if timeframe is invalid
+    applyLoadedSettings({
+      ...settings,
+      timeframe: settings.timeframe && isValidTimeframe(settings.timeframe) ? settings.timeframe : "1h"
+    });
     console.debug("Settings loaded:", settings);
-    
   } catch (error) {
     console.error("Failed to load settings:", error);
-    currentSymbol = "TSLA"; // Fallback to TSLA on error
+    currentTimeframe = "1h"; // Fallback to 1h on error
+    elements.timeframeSelector.value = "1h";
+    currentSymbol = "TSLA";
   }
 }
 
@@ -456,26 +603,24 @@ function loadSettings() {
  * Apply loaded settings to the application
  */
 function applyLoadedSettings(settings) {
-  // Symbol and Timeframe
+  // Symbol
   if (settings.symbol) {
     currentSymbol = settings.symbol;
     elements.symbolSelector.value = currentSymbol;
   } else {
-    // No symbol in settings, use TSLA
     currentSymbol = "TSLA";
     elements.symbolSelector.value = "TSLA";
   }
 
-  if (settings.timeframe) {
-    currentTimeframe = settings.timeframe;
-    elements.timeframeSelector.value = currentTimeframe;
-  }
+  // Timeframe
+  currentTimeframe = settings.timeframe || "1h";
+  elements.timeframeSelector.value = currentTimeframe;
+  console.log("Applied timeframe:", currentTimeframe);
 
   // Initialize generator if not done yet
   if (!pineScriptGenerator) {
     pineScriptGenerator = new PineScriptGenerator(currentSymbol, currentTimeframe);
   }
-
 
   // Risk Settings
   if (settings.riskSettings) {
@@ -491,10 +636,9 @@ function applyLoadedSettings(settings) {
   if (settings.signalDisplay) {
     pineScriptGenerator.signalDisplay = settings.signalDisplay;
   }
-  
+
   if (settings.uiSettings) {
     pineScriptGenerator.updateUISettings(settings.uiSettings);
-    // Update checkboxes
     document.getElementById('include-circuit-breaker').checked = settings.uiSettings.includeCircuitBreaker;
     document.getElementById('include-gap-protection').checked = settings.uiSettings.includeGapProtection;
   }
@@ -511,19 +655,15 @@ function applyLoadedSettings(settings) {
  * Update all display elements with current values
  */
 function updateDisplayElements() {
-  // Update display elements
   if (elements.currentSymbolDisplay) {
     elements.currentSymbolDisplay.textContent = currentSymbol;
   }
-  
   if (elements.currentTimeframeDisplay) {
     elements.currentTimeframeDisplay.textContent = currentTimeframe;
   }
-  
   if (elements.modalSymbolDisplay) {
     elements.modalSymbolDisplay.textContent = currentSymbol;
   }
-  
   if (elements.modalTimeframeDisplay) {
     elements.modalTimeframeDisplay.textContent = currentTimeframe;
   }

@@ -2,14 +2,12 @@ class KlineChart {
   constructor(domElementId) {
     // Check if chart already exists
     if (window.tradingViewChart) {
-      return window.tradingViewChart;
-
-      
+      return window.tradingViewChart;      
     }
 
     this.chartProperties = {
       width: window.innerWidth,
-      height: window.innerHeight,
+      height: window.innerHeightgetKlines,
       layout: {
         backgroundColor: '#131722',
         textColor: '#d1d4dc',
@@ -39,6 +37,7 @@ class KlineChart {
     
     // Initialize all series
     this.initializeSeries();
+    
   }
 
   initializeSeries() {
@@ -136,38 +135,57 @@ class KlineChart {
   }
 
 
+  // Update the loadHistoricalData method in KlineChart
   loadHistoricalData(klinedata) {
-    // Clear existing data first
-    this.candleseries.setData([]);
-    this.ema8Series.setData([]);
-    this.ema20Series.setData([]);
-    this.ema50Series.setData([]);
-    this.ema200Series.setData([]);
-    this.tema5Series.setData([]);
-    this.volumeSeries.setData([]);
-    this.volumeMaSeries.setData([]);
-    this.volumeOscSeries.setData([]);
+    console.log(`Loading ${klinedata.length} data points into chart`);
     
-    // Load new data
-    this.candleseries.setData(klinedata);
-    
-    // Set data for each indicator series
-    this.ema8Series.setData(this.extractData(klinedata, 'ema8'));
-    this.ema20Series.setData(this.extractData(klinedata, 'ema20'));
-    this.ema50Series.setData(this.extractData(klinedata, 'ema50'));
-    this.ema200Series.setData(this.extractData(klinedata, 'ema200'));
-    this.tema5Series.setData(this.extractData(klinedata, 'tema5'));
-    
-    // Volume data
-    const volumeData = klinedata.map(d => ({
-      time: d.time,
-      value: d.volume,
-      color: d.close > d.open ? '#26a69a' : '#ef5350'
-    }));
-    
-    this.volumeSeries.setData(volumeData);
-    this.volumeMaSeries.setData(this.extractData(klinedata, 'volumeMa'));
-    this.volumeOscSeries.setData(this.extractData(klinedata, 'volumeOsc'));
+    try {
+      // Clear existing data first
+      this.clearData();
+      
+      // Verify data format before setting
+      if (klinedata.length > 0) {
+        const sample = klinedata[0];
+        console.log("Sample kline data:", sample);
+        
+        // Make sure we have at least open, high, low, close data
+        if (sample.open === undefined || sample.high === undefined || 
+            sample.low === undefined || sample.close === undefined) {
+          console.error("Invalid kline data format:", sample);
+          throw new Error("Invalid data format");
+        }
+      }
+      klinedata.sort((a, b) => a.time - b.time);
+
+      // Load new data
+      this.candleseries.setData(klinedata);
+      
+      // Set data for each indicator series
+      this.ema8Series.setData(this.extractData(klinedata, 'ema8'));
+      this.ema20Series.setData(this.extractData(klinedata, 'ema20'));
+      this.ema50Series.setData(this.extractData(klinedata, 'ema50'));
+      this.ema200Series.setData(this.extractData(klinedata, 'ema200'));
+      this.tema5Series.setData(this.extractData(klinedata, 'tema5'));
+      
+      // Volume data
+      const volumeData = klinedata.map(d => ({
+        time: d.time,
+        value: d.volume,
+        color: d.close > d.open ? '#26a69a' : '#ef5350'
+      }));
+      
+      this.volumeSeries.setData(volumeData);
+      this.volumeMaSeries.setData(this.extractData(klinedata, 'volumeMa'));
+      this.volumeOscSeries.setData(this.extractData(klinedata, 'volumeOsc'));
+      
+      // Force chart to fit content after loading
+      this.chart.timeScale().fitContent();
+      
+      console.log("Chart data loaded successfully");
+    } catch (error) {
+      console.error("Error loading chart data:", error);
+      throw error; // Propagate error to caller
+    }
   }
 
   extractData(klinedata, key) {
@@ -177,24 +195,95 @@ class KlineChart {
   }
 
   updateKline(kline) {
-    this.candleseries.update(kline);
-    
-    // Update each indicator series
-    if (kline.ema8) this.ema8Series.update({ time: kline.time, value: kline.ema8 });
-    if (kline.ema20) this.ema20Series.update({ time: kline.time, value: kline.ema20 });
-    if (kline.ema50) this.ema50Series.update({ time: kline.time, value: kline.ema50 });
-    if (kline.ema200) this.ema200Series.update({ time: kline.time, value: kline.ema200 });
-    if (kline.tema5) this.tema5Series.update({ time: kline.time, value: kline.tema5 });
-    
-    // Update volume data
-    const volumeColor = kline.close > kline.open ? '#26a69a' : '#ef5350';
-    this.volumeSeries.update({
-      time: kline.time,
-      value: kline.volume,
-      color: volumeColor
-    });
-    
-    if (kline.volumeMa) this.volumeMaSeries.update({ time: kline.time, value: kline.volumeMa });
-    if (kline.volumeOsc) this.volumeOscSeries.update({ time: kline.time, value: kline.volumeOsc });
+    try {
+      // First check if this is a historical data point (older than what we already have)
+      const existingData = this.candleseries.dataByTime();
+      const lastTimestamp = Object.keys(existingData).length > 0 ? 
+        Math.max(...Object.keys(existingData).map(Number)) : 0;
+      
+      // If this is an older data point than our most recent one, skip the update
+      if (lastTimestamp > 0 && kline.time < lastTimestamp) {
+        console.log(`Skipping update for historical data point: ${kline.time} (current latest: ${lastTimestamp})`);
+        return;
+      }
+      
+      // Update main candlestick series
+      try {
+        this.candleseries.update(kline);
+      } catch (error) {
+        console.warn(`Error updating candlestick series: ${error.message}`);
+      }
+      
+      // Update each indicator series with individual try/catch blocks
+      if (kline.ema8 !== undefined) {
+        try {
+          this.ema8Series.update({ time: kline.time, value: kline.ema8 });
+        } catch (error) {
+          console.warn(`Error updating EMA8: ${error.message}`);
+        }
+      }
+      
+      if (kline.ema20 !== undefined) {
+        try {
+          this.ema20Series.update({ time: kline.time, value: kline.ema20 });
+        } catch (error) {
+          console.warn(`Error updating EMA20: ${error.message}`);
+        }
+      }
+        
+      if (kline.ema50) {
+        try {
+          this.ema50Series.update({ time: kline.time, value: kline.ema50 });
+        } catch (error) {
+          console.warn(`Error updating EMA50: ${error.message}`);
+        }
+      }
+      
+      if (kline.ema200) {
+        try {
+          this.ema200Series.update({ time: kline.time, value: kline.ema200 });
+        } catch (error) {
+          console.warn(`Error updating EMA200: ${error.message}`);
+        }
+      }
+      
+      if (kline.tema5) {
+        try {
+          this.tema5Series.update({ time: kline.time, value: kline.tema5 });
+        } catch (error) {
+          console.warn(`Error updating TEMA5: ${error.message}`);
+        }
+      }
+      
+      // Update volume data
+      const volumeColor = kline.close > kline.open ? '#26a69a' : '#ef5350';
+      try {
+        this.volumeSeries.update({
+          time: kline.time,
+          value: kline.volume,
+          color: volumeColor
+        });
+      } catch (error) {
+        console.warn(`Error updating volume: ${error.message}`);
+      }
+      
+      if (kline.volumeMa) {
+        try {
+          this.volumeMaSeries.update({ time: kline.time, value: kline.volumeMa });
+        } catch (error) {
+          console.warn(`Error updating Volume MA: ${error.message}`);
+        }
+      }
+      
+      if (kline.volumeOsc) {
+        try {
+          this.volumeOscSeries.update({ time: kline.time, value: kline.volumeOsc });
+        } catch (error) {
+          console.warn(`Error updating Volume OSC: ${error.message}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error in updateKline:", error);
+    }
   }
 }
