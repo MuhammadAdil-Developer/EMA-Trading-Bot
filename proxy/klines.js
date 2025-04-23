@@ -5,12 +5,15 @@ import { TEMA } from "./tema-indicator.js";
 import Stocks from "stocks.js";
 
 class BinanceKlineWS {
+
   constructor(symbol = "TSLA", interval = "1h") {
     this.symbol = symbol.toUpperCase();
     this.interval = interval;
     this.klines = new Map();
     this.ws = null;
     
+    console.log(`Initializing Klines with symbol: ${this.symbol}, interval: ${this.interval}`);
+      
     // Alpha Vantage API key
     // You'll need to replace this with a valid key from https://www.alphavantage.co/support/#api-key
     this.alphaVantageKey = "ZGRCTLWEPQM3W5MO";
@@ -85,7 +88,7 @@ class BinanceKlineWS {
       try {
         if (isCrypto) {
           // For crypto, use Binance API
-          const binanceUrl = `https://api.binance.us/api/v3/klines?symbol=${this.symbol}&interval=${
+          const binanceUrl = `https://api.binance.com/api/v3/klines?symbol=${this.symbol}&interval=${
             this.interval
           }&limit=1000`;
           
@@ -441,13 +444,13 @@ class BinanceKlineWS {
     this.ws = new WebSocket(
       `wss://stream.binance.com:9443/ws/${this.symbol.toLowerCase()}@kline_${this.interval}`
     );
-
+  
     this.ws.on("open", () => {
       console.log(
         `Connected to Binance WebSocket for ${this.symbol} ${this.interval} klines`
       );
     });
-
+  
     this.ws.on("message", (data) => {
       const parsedData = JSON.parse(data);
       if (parsedData.e !== "kline") return;

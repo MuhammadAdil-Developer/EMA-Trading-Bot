@@ -3,7 +3,6 @@ import cors from "cors";
 import { Server } from "socket.io";
 import Klines from "./klines.js";
 import mongoose from "mongoose";
-import puppeteer from "puppeteer";
 
 import { fileURLToPath } from "url";
 import path from "path";
@@ -171,14 +170,71 @@ async function startServer() {
       }
     });
   
+    socket.on("timeframe-change", async (data) => {
+      try {
+        // Ensure we have both symbol and timeframe
+        if (!data || (typeof data === 'object' && (!data.symbol || !data.timeframe))) {
+          console.error("Invalid timeframe change request:", data);
+          socket.emit("timeframe_error", "Invalid timeframe change request");
+          // REMOVE: hideLoader();
+          return;
+        }
+        
+        // Extract symbol and timeframe
+        const symbol = typeof data === 'object' ? data.symbol : currentSymbol;
+        const timeframe = typeof data === 'object' ? data.timeframe : data;
+        
+        console.log(`Timeframe changed to: ${timeframe} for symbol: ${symbol}`);
+        currentSymbol = symbol;
+        currentTimeframe = timeframe;
+        
+        // Clean up the old connection
+        if (binanceKlineWS) {
+          binanceKlineWS.cleanup();
+        }
+        
+        // Create a new instance with the new timeframe
+        binanceKlineWS = new Klines(currentSymbol, currentTimeframe);
+        
+        // Set up the onKline handler
+        binanceKlineWS.onKline = (kline) => {
+          socket.emit("kline", kline);
+        };
+        
+        // For stock symbols, we need a longer timeout
+        const isStock = !(symbol.endsWith('USDT') || symbol.endsWith('BUSD') || symbol.endsWith('BTC'));
+        const initTimeout = isStock ? 3000 : 1000;
+        
+        // Wait for initialization before sending data
+        console.log(`Waiting ${initTimeout}ms for ${symbol}/${timeframe} data initialization...`);
+        await new Promise(resolve => setTimeout(resolve, initTimeout));
+        
+        // Send the current data to the client
+        const klines = binanceKlineWS.getKlines();
+        if (klines && klines.length > 0) {
+          const sortedKlines = [...klines].sort((a, b) => a.time - b.time);
+          socket.emit("kline", sortedKlines);
+        } else {
+          socket.emit("timeframe_error", `No data available for ${timeframe} timeframe`);
+        }
+      } catch (error) {
+
+        console.error(`Error processing timeframe change:`, error);
+        // REMOVE: hideLoader();
+        socket.emit("timeframe_error", error.message);
+      }
+    });
+     
     
     socket.on("disconnect", () => {
       console.log("A user disconnected");
     });
   });
+  
 
 
   
+
 
   // TradingView Alert Endpoint
   app.post("/tradingview-alert", async (req, res) => {
