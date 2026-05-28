@@ -30,9 +30,3 @@ A real-time cryptocurrency trading chart application that displays live price da
   - Express.js
   - Socket.IO for WebSocket communication
   - @debut/indicators for technical analysis
-
-## 🔔 Stay Updated!
-
-If you enjoyed this project and want to see more or similar projects, follow me for updates! 🚀  
-You can also follow me on **YouTube** for more awesome content:  
-👉 [YouTube Channel](https://www.youtube.com/@karthik947/videos)
